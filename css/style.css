@@ -1004,8 +1004,13 @@ body::after {
     transition: opacity var(--t);
 }
 
-.product-card:hover .product-svg {
+.product-card:hover .product-image:not(.has-3d) .product-svg {
     opacity: 1;
+}
+
+/* 3D yüklenmişse hover'da bile SVG gizli kalsın */
+.product-image.has-3d .product-svg {
+    opacity: 0 !important;
 }
 
 .product-tag {
