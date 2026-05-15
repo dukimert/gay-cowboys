@@ -20,6 +20,7 @@ window.ArsivViewer = (function () {
         const baseColor = options.color || 0x6b5a3e;
         const modelUrl = options.modelUrl || null;
         const isCard = options.mode === 'card'; // küçük kart için hafif mod
+        const onLoad = options.onLoad || null;   // GLB tam yüklenince çağrılır
 
         // ============================
         // Sahne · Kamera · Renderer
@@ -100,11 +101,17 @@ window.ArsivViewer = (function () {
             scene.add(loadingPlaceholder);
 
             const loader = new THREE.GLTFLoader();
+            // Draco sıkıştırılmış mesh decoder (textureCompress + Draco için gerek)
+            if (typeof THREE.DRACOLoader !== 'undefined') {
+                const dracoLoader = new THREE.DRACOLoader();
+                dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+                loader.setDRACOLoader(dracoLoader);
+            }
+
             loader.load(
                 modelUrl,
                 (gltf) => {
                     const loaded = gltf.scene;
-                    // Otomatik ortala ve normalize et
                     autoFitModel(loaded);
                     model.add(loaded);
                     modelLoaded = true;
@@ -112,20 +119,23 @@ window.ArsivViewer = (function () {
                         scene.remove(loadingPlaceholder);
                         loadingPlaceholder = null;
                     }
+                    if (onLoad) onLoad();
                 },
                 undefined,
                 (err) => {
-                    console.warn('GLB yüklenemedi, fallback primitive gösteriliyor:', err);
+                    console.warn('GLB yüklenemedi, fallback primitive:', err);
                     if (loadingPlaceholder) {
                         scene.remove(loadingPlaceholder);
                         loadingPlaceholder = null;
                     }
                     buildPlaceholder(model, productType, baseColor);
+                    if (onLoad) onLoad();
                 }
             );
         } else {
-            // GLB yok → primitif fallback
+            // GLB yok → primitif fallback hemen hazır
             buildPlaceholder(model, productType, baseColor);
+            if (onLoad) setTimeout(onLoad, 50);
         }
 
         // ============================

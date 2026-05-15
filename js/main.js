@@ -360,17 +360,17 @@ function setupCardViewers() {
             const color = parseInt(el.dataset.color, 10) || 0x6b5a3e;
 
             try {
+                const imgWrap = el.closest('.product-image');
                 window.ArsivViewer.create(el, {
                     productType: type,
                     color: color,
                     modelUrl: modelUrl,
-                    mode: 'card'
+                    mode: 'card',
+                    onLoad: () => {
+                        // Model GERÇEKTEN yüklendiğinde SVG'yi gizle, 3D'yi göster
+                        if (imgWrap) imgWrap.classList.add('has-3d');
+                    }
                 });
-                // Yüklendikten sonra parent'a has-3d ekle
-                const imgWrap = el.closest('.product-image');
-                if (imgWrap) {
-                    setTimeout(() => imgWrap.classList.add('has-3d'), 800);
-                }
             } catch (e) {
                 console.warn('Card 3D yüklenemedi', e);
             }
