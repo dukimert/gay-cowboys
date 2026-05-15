@@ -19,6 +19,7 @@ window.ArsivViewer = (function () {
         const productType = options.productType || 'jacket';
         const baseColor = options.color || 0x6b5a3e;
         const modelUrl = options.modelUrl || null;
+        const isCard = options.mode === 'card'; // küçük kart için hafif mod
 
         // ============================
         // Sahne · Kamera · Renderer
@@ -37,9 +38,9 @@ window.ArsivViewer = (function () {
             powerPreference: 'high-performance'
         });
         renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setPixelRatio(isCard ? 1 : Math.min(window.devicePixelRatio, 2));
         renderer.setClearColor(0x000000, 0);
-        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.enabled = !isCard;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         if (renderer.outputEncoding !== undefined) {
             renderer.outputEncoding = THREE.sRGBEncoding;
@@ -172,13 +173,20 @@ window.ArsivViewer = (function () {
             e.preventDefault();
         }
 
-        dom.addEventListener('mousedown', onPointerDown);
-        dom.addEventListener('touchstart', onPointerDown, { passive: false });
-        window.addEventListener('mousemove', onPointerMove);
-        dom.addEventListener('touchmove', onPointerMove, { passive: false });
-        window.addEventListener('mouseup', onPointerUp);
-        window.addEventListener('touchend', onPointerUp);
-        dom.addEventListener('wheel', onWheel, { passive: false });
+        // Etkileşim sadece tam viewer için (card modunda kart link kalır)
+        if (!isCard) {
+            dom.addEventListener('mousedown', onPointerDown);
+            dom.addEventListener('touchstart', onPointerDown, { passive: false });
+            window.addEventListener('mousemove', onPointerMove);
+            dom.addEventListener('touchmove', onPointerMove, { passive: false });
+            window.addEventListener('mouseup', onPointerUp);
+            window.addEventListener('touchend', onPointerUp);
+            dom.addEventListener('wheel', onWheel, { passive: false });
+        } else {
+            // Card modu — kullanıcı dokunamaz, sadece döner
+            dom.style.pointerEvents = 'none';
+            autoRotate = true;
+        }
 
         // ============================
         // Resize

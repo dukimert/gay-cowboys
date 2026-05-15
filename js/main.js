@@ -310,12 +310,18 @@ function createProductCard(product) {
     const colorHex = '#' + product.color.toString(16).padStart(6, '0');
     const collectionColor = product.collection === 'bw' ? 'var(--bw-gold)' : 'var(--vc-magenta)';
 
+    // Ürünün GLB modeli varsa, kart içine lazy-load 3D viewer div'i ekle
+    const card3dHtml = product.model
+        ? `<div class="card-3d" data-model="${product.model}" data-type="${product.type3d}" data-color="${product.color}"></div>`
+        : '';
+
     card.innerHTML = `
         <div class="product-image">
             ${tagHtml}
             <div class="product-3d-badge" title="3D Önizleme">3D</div>
             <div class="product-image-inner" style="background: radial-gradient(circle at 30% 30%, ${colorHex}33 0%, transparent 60%), linear-gradient(135deg, ${colorHex}1a 0%, transparent 80%);">
                 <div class="product-svg" style="color: ${collectionColor};">${productIcon(product.type3d)}</div>
+                ${card3dHtml}
             </div>
         </div>
         <div class="product-meta">
@@ -330,6 +336,50 @@ function createProductCard(product) {
     `;
 
     return card;
+}
+
+// ============================
+// Kart 3D Viewer'ları — IntersectionObserver ile lazy load
+// Sadece görüntüye giren kartlar 3D yükler.
+// ============================
+function setupCardViewers() {
+    if (!window.ArsivViewer || !window.IntersectionObserver) return;
+
+    const cards = document.querySelectorAll('.card-3d[data-model]');
+    if (cards.length === 0) return;
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            const el = entry.target;
+            if (el.dataset.loaded) return;
+            el.dataset.loaded = '1';
+
+            const modelUrl = el.dataset.model;
+            const type = el.dataset.type;
+            const color = parseInt(el.dataset.color, 10) || 0x6b5a3e;
+
+            try {
+                window.ArsivViewer.create(el, {
+                    productType: type,
+                    color: color,
+                    modelUrl: modelUrl,
+                    mode: 'card'
+                });
+                // Yüklendikten sonra parent'a has-3d ekle
+                const imgWrap = el.closest('.product-image');
+                if (imgWrap) {
+                    setTimeout(() => imgWrap.classList.add('has-3d'), 800);
+                }
+            } catch (e) {
+                console.warn('Card 3D yüklenemedi', e);
+            }
+
+            observer.unobserve(el);
+        });
+    }, { rootMargin: '120px', threshold: 0.05 });
+
+    cards.forEach(c => observer.observe(c));
 }
 
 // ============================
@@ -652,4 +702,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('aviatorProducts')) loadCollectionProducts('vc', 'aviatorProducts');
     if (document.getElementById('viewer3d')) loadProductDetail();
     if (document.getElementById('viewer3dHome')) loadHomeViewer();
+
+    // Kartlardaki 3D'leri lazy-load için observer kur
+    setupCardViewers();
 });
