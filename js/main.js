@@ -53,6 +53,7 @@ const PRODUCTS = [
         tag: 'RARE',
         color: 0x141414,
         type3d: 'jacket',
+        model: 'models/midnight-command.glb',
         story: 'Bir antika tüccarının çatı katındaki bavulundan çıktı. İç astarda bir isim ve rütbe işaret kayıt edilmiş — sahibinin kim olduğunu bilmiyoruz. Yumuşamış yün, dokunduğunda zamanı hissettiren bir parça.',
         desc: 'Çift sıra düğme, geniş yaka, uzun kesim. Yıllar boyunca kumaşı yumuşamış, dokusu zenginleşmiş. Bir devre tanıklık etmiş bir parça — replica değil, gerçek.',
         specs: [
@@ -150,6 +151,7 @@ const PRODUCTS = [
         tag: 'EFSANE',
         color: 0x6e4a2a,
         type3d: 'jacket',
+        model: 'models/aviator-leather.glb',
         story: 'Bir emekli Donanma pilotunun gardırobundan satışa çıktı. 1986\'da üretilmiş, Top Gun filminin yayınlandığı yıl. Derisi yıllarca yumuşamış, kürk yaka hâlâ tüm görkeminde.',
         desc: 'Maverick döneminden gerçek bir G-1 — 1986 orijinal. Koyun derisi, gerçek koyun postu yaka, donanma standardı astar. 40 yıllık karakteri ve hikayesiyle.',
         specs: [
