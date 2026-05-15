@@ -14,10 +14,13 @@ const WA_PHONE = '905551234567';
 // ============================
 // ÜRÜN VERİSİ
 // collection: 'bw' (Blackwing) veya 'vc' (Vintage)
-// type3d: 'jacket', 'hat', 'sunglasses', 'armband', 'boots', 'gloves', 'watch'
-// color: hex sayı — placeholder 3D model rengi
-// era: parçanın çağı/yılı
-// story: parçanın hikayesi (italik kutu)
+// type3d:    primitif fallback tipi ('jacket', 'hat', 'sunglasses',
+//            'armband', 'boots', 'gloves', 'watch')
+// color:     primitif rengin hex sayısı
+// era:       parçanın çağı/yılı
+// story:     parçanın hikayesi (italik kutu)
+// model:     OPSİYONEL — gerçek 3D model yolu (örn: 'models/g1-jacket.glb')
+//            tanımlıysa primitif yerine GLB yüklenir
 // ============================
 const PRODUCTS = [
     // ===== BLACKWING (savaş görmüş, tarih yaşamış) =====
@@ -455,7 +458,8 @@ function loadProductDetail() {
     if (viewerEl && window.ArsivViewer) {
         const viewer = window.ArsivViewer.create(viewerEl, {
             productType: product.type3d,
-            color: product.color
+            color: product.color,
+            modelUrl: product.model || null
         });
 
         const rotateBtn = document.getElementById('viewerRotateBtn');
@@ -492,7 +496,8 @@ function loadHomeViewer() {
         const previewProduct = PRODUCTS.find(p => p.id === 7) || PRODUCTS[0];
         window.ArsivViewer.create(homeViewer, {
             productType: previewProduct.type3d,
-            color: previewProduct.color
+            color: previewProduct.color,
+            modelUrl: previewProduct.model || null
         });
     }
 }
@@ -580,6 +585,37 @@ function setupSizeSelector() {
 }
 
 // ============================
+// Diagonal Hero — Mouse-X bazlı geçiş
+// Ekranı tam ortadan ikiye böler;
+// imleç hangi yarıdaysa o taraf aktif olur.
+// ============================
+function setupDiagonalHover() {
+    const hero = document.querySelector('.diagonal-hero');
+    if (!hero) return;
+
+    let active = null;
+
+    function update(e) {
+        const rect = hero.getBoundingClientRect();
+        const x = (e.clientX || (e.touches && e.touches[0].clientX) || 0) - rect.left;
+        const mid = rect.width / 2;
+        const next = x < mid ? 'bw' : 'vc';
+        if (next === active) return;
+        active = next;
+        hero.classList.toggle('bw-active', next === 'bw');
+        hero.classList.toggle('vc-active', next === 'vc');
+    }
+
+    function clear() {
+        active = null;
+        hero.classList.remove('bw-active', 'vc-active');
+    }
+
+    hero.addEventListener('mousemove', update);
+    hero.addEventListener('mouseleave', clear);
+}
+
+// ============================
 // İletişim Formu
 // ============================
 function setupContactForm() {
@@ -607,6 +643,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupSizeSelector();
     setupContactForm();
     setupWhatsAppLinks();
+    setupDiagonalHover();
 
     if (document.getElementById('featuredProducts')) loadFeaturedProducts();
     if (document.getElementById('tacticalProducts')) loadCollectionProducts('bw', 'tacticalProducts');

@@ -95,7 +95,7 @@ h1, h2, h3, h4 {
     font-family: var(--font-display);
     font-weight: 400;
     letter-spacing: 0.02em;
-    line-height: 0.92;
+    line-height: 1.02;
     text-transform: uppercase;
 }
 
@@ -359,19 +359,24 @@ body::after {
     text-align: right;
 }
 
-/* Hover expand */
-.diagonal-hero:has(.diag-bw:hover) .diag-bw {
+/* Mouse-X bazlı genişleme (JS class ekler) */
+.diagonal-hero.bw-active .diag-bw {
     clip-path: polygon(0 0, 75% 0, 50% 100%, 0 100%);
 }
-.diagonal-hero:has(.diag-bw:hover) .diag-vc {
+.diagonal-hero.bw-active .diag-vc {
     clip-path: polygon(75% 0, 100% 0, 100% 100%, 50% 100%);
 }
 
-.diagonal-hero:has(.diag-vc:hover) .diag-vc {
+.diagonal-hero.vc-active .diag-vc {
     clip-path: polygon(48% 0, 100% 0, 100% 100%, 25% 100%);
 }
-.diagonal-hero:has(.diag-vc:hover) .diag-bw {
+.diagonal-hero.vc-active .diag-bw {
     clip-path: polygon(0 0, 48% 0, 25% 100%, 0 100%);
+}
+
+.diagonal-hero.bw-active .bw-eagle {
+    opacity: 0.32;
+    transform: translate(-50%, -50%) scale(1.04);
 }
 
 /* Çapraz çizgi (seam) */
@@ -404,10 +409,7 @@ body::after {
     transition: var(--t-slow);
 }
 
-.diag-bw:hover .bw-eagle {
-    opacity: 0.32;
-    transform: translate(-50%, -50%) scale(1.04);
-}
+/* eagle hover artık .bw-active class'ı ile çalışıyor (yukarıda) */
 
 .bw-eagle svg {
     width: 100%;
@@ -440,7 +442,7 @@ body::after {
     color: var(--bw-cream);
     margin-bottom: var(--sm);
     font-size: clamp(3rem, 7vw, 6rem);
-    line-height: 0.88;
+    line-height: 1.0;
 }
 
 .diag-bw h2 .ghost {
@@ -598,7 +600,7 @@ body::after {
     color: #fff;
     margin-bottom: var(--sm);
     font-size: clamp(3rem, 7vw, 6rem);
-    line-height: 0.88;
+    line-height: 1.0;
     text-shadow:
         0 0 30px rgba(255, 45, 139, 0.4),
         0 2px 0 rgba(0, 0, 0, 0.3);

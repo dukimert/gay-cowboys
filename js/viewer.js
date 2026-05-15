@@ -1,16 +1,14 @@
 /* ============================================
-   ARŞİV 07 — 3D Product Viewer (Three.js)
+   GAY COWBOYS — 3D Product Viewer (Three.js)
    ============================================
-   Placeholder geometri: ceket/manken silüeti.
-   Gerçek .glb dosyan olunca GLTFLoader ile değiştir.
+   İki yüklenme modu:
+   1) GLB dosyası varsa (options.modelUrl): gerçek 3D modeli yükle
+   2) Yoksa: primitif geometriden placeholder göster
    ============================================ */
 
 window.ArsivViewer = (function () {
     'use strict';
 
-    // ============================
-    // 3D Sahne Yöneticisi
-    // ============================
     function create3DViewer(container, options) {
         if (typeof THREE === 'undefined') {
             console.warn('Three.js yüklenmedi.');
@@ -20,18 +18,19 @@ window.ArsivViewer = (function () {
         options = options || {};
         const productType = options.productType || 'jacket';
         const baseColor = options.color || 0x6b5a3e;
+        const modelUrl = options.modelUrl || null;
 
-        // Scene
+        // ============================
+        // Sahne · Kamera · Renderer
+        // ============================
         const scene = new THREE.Scene();
         scene.fog = new THREE.Fog(0x0d0d10, 4, 14);
 
-        // Camera
         const aspect = container.clientWidth / container.clientHeight;
         const camera = new THREE.PerspectiveCamera(40, aspect, 0.1, 100);
         camera.position.set(0, 0.2, 5);
         camera.lookAt(0, 0, 0);
 
-        // Renderer
         const renderer = new THREE.WebGLRenderer({
             antialias: true,
             alpha: true,
@@ -42,18 +41,19 @@ window.ArsivViewer = (function () {
         renderer.setClearColor(0x000000, 0);
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        if (renderer.outputEncoding !== undefined) {
+            renderer.outputEncoding = THREE.sRGBEncoding;
+        }
 
-        // Mevcut canvas'ı temizle
         while (container.firstChild) container.removeChild(container.firstChild);
         container.appendChild(renderer.domElement);
 
         // ============================
-        // Aydınlatma — sinematik kurulum
+        // Sinematik 3 noktalı aydınlatma
         // ============================
         const ambient = new THREE.AmbientLight(0x4a4a55, 0.4);
         scene.add(ambient);
 
-        // Anahtar ışık (sıcak, üst-sağ)
         const key = new THREE.DirectionalLight(0xfff0d4, 1.6);
         key.position.set(3, 4, 3);
         key.castShadow = true;
@@ -61,17 +61,15 @@ window.ArsivViewer = (function () {
         key.shadow.mapSize.height = 1024;
         scene.add(key);
 
-        // Dolgu ışık (soğuk, sol)
         const fill = new THREE.DirectionalLight(0x6a85b0, 0.6);
         fill.position.set(-3, 1, 2);
         scene.add(fill);
 
-        // Rim ışık (arka)
         const rim = new THREE.DirectionalLight(0xffd9a0, 0.9);
         rim.position.set(0, 2, -4);
         scene.add(rim);
 
-        // Zemin (yansıtıcı disk)
+        // Yansıtıcı zemin diski
         const groundGeo = new THREE.CircleGeometry(3, 64);
         const groundMat = new THREE.MeshStandardMaterial({
             color: 0x0a0a0e,
@@ -87,28 +85,47 @@ window.ArsivViewer = (function () {
         scene.add(ground);
 
         // ============================
-        // Ürün Modeli (placeholder)
+        // Model yükle: GLB veya primitif fallback
         // ============================
         const model = new THREE.Group();
-
-        if (productType === 'hat') {
-            buildHat(model, baseColor);
-        } else if (productType === 'sunglasses') {
-            buildSunglasses(model, baseColor);
-        } else if (productType === 'armband') {
-            buildArmband(model, baseColor);
-        } else if (productType === 'boots') {
-            buildBoots(model, baseColor);
-        } else if (productType === 'gloves') {
-            buildGloves(model, baseColor);
-        } else if (productType === 'watch') {
-            buildWatch(model, baseColor);
-        } else {
-            // jacket / default
-            buildJacket(model, baseColor);
-        }
-
         scene.add(model);
+
+        let modelLoaded = false;
+        let loadingPlaceholder = null;
+
+        if (modelUrl && typeof THREE.GLTFLoader !== 'undefined') {
+            // Loading göstergesi (basit dönen torus)
+            loadingPlaceholder = createLoadingSpinner();
+            scene.add(loadingPlaceholder);
+
+            const loader = new THREE.GLTFLoader();
+            loader.load(
+                modelUrl,
+                (gltf) => {
+                    const loaded = gltf.scene;
+                    // Otomatik ortala ve normalize et
+                    autoFitModel(loaded);
+                    model.add(loaded);
+                    modelLoaded = true;
+                    if (loadingPlaceholder) {
+                        scene.remove(loadingPlaceholder);
+                        loadingPlaceholder = null;
+                    }
+                },
+                undefined,
+                (err) => {
+                    console.warn('GLB yüklenemedi, fallback primitive gösteriliyor:', err);
+                    if (loadingPlaceholder) {
+                        scene.remove(loadingPlaceholder);
+                        loadingPlaceholder = null;
+                    }
+                    buildPlaceholder(model, productType, baseColor);
+                }
+            );
+        } else {
+            // GLB yok → primitif fallback
+            buildPlaceholder(model, productType, baseColor);
+        }
 
         // ============================
         // Etkileşim — manuel orbit
@@ -164,7 +181,7 @@ window.ArsivViewer = (function () {
         dom.addEventListener('wheel', onWheel, { passive: false });
 
         // ============================
-        // Resize handler
+        // Resize
         // ============================
         function onResize() {
             const w = container.clientWidth;
@@ -179,7 +196,7 @@ window.ArsivViewer = (function () {
         window.addEventListener('resize', onResize);
 
         // ============================
-        // Animasyon döngüsü
+        // Animasyon
         // ============================
         let animationId;
         function animate() {
@@ -189,7 +206,6 @@ window.ArsivViewer = (function () {
                 targetRotY += 0.004;
             }
 
-            // Yumuşak interpolasyon
             rotY += (targetRotY - rotY) * 0.08;
             rotX += (targetRotX - rotX) * 0.08;
             zoom += (targetZoom - zoom) * 0.08;
@@ -198,45 +214,38 @@ window.ArsivViewer = (function () {
             model.rotation.x = rotX;
             camera.position.z = zoom;
 
-            // Hafif idle bobbing
             model.position.y = Math.sin(Date.now() * 0.001) * 0.04;
+
+            if (loadingPlaceholder) {
+                loadingPlaceholder.rotation.y += 0.02;
+                loadingPlaceholder.rotation.x += 0.01;
+            }
 
             renderer.render(scene, camera);
         }
 
         animate();
 
-        // ============================
-        // Public API
-        // ============================
         return {
-            scene: scene,
-            camera: camera,
-            renderer: renderer,
-            model: model,
-
+            scene, camera, renderer, model,
             toggleAutoRotate: function () {
                 autoRotate = !autoRotate;
                 return autoRotate;
             },
-
             reset: function () {
                 targetRotY = 0;
                 targetRotX = 0;
                 targetZoom = 5;
                 autoRotate = true;
             },
-
             zoomIn: function () {
                 targetZoom = Math.max(3, targetZoom - 0.6);
                 autoRotate = false;
             },
-
             zoomOut: function () {
                 targetZoom = Math.min(8, targetZoom + 0.6);
                 autoRotate = false;
             },
-
             destroy: function () {
                 cancelAnimationFrame(animationId);
                 resizeObserver.disconnect();
@@ -250,9 +259,58 @@ window.ArsivViewer = (function () {
     }
 
     // ============================
-    // Model Builders (placeholder)
+    // GLB yüklenmiş modeli ortala ve normalize et
     // ============================
+    function autoFitModel(obj) {
+        const box = new THREE.Box3().setFromObject(obj);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
 
+        // Merkeze al
+        obj.position.x -= center.x;
+        obj.position.y -= center.y;
+        obj.position.z -= center.z;
+
+        // Normalize boyut (en büyük eksen ~ 2 birim olsun)
+        const maxDim = Math.max(size.x, size.y, size.z);
+        if (maxDim > 0) {
+            const scale = 2.2 / maxDim;
+            obj.scale.setScalar(scale);
+        }
+
+        // Gölge ayarı
+        obj.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+    }
+
+    // ============================
+    // Loading spinner (GLB yüklenirken)
+    // ============================
+    function createLoadingSpinner() {
+        const group = new THREE.Group();
+        const geo = new THREE.TorusGeometry(0.4, 0.04, 8, 32);
+        const mat = new THREE.MeshStandardMaterial({
+            color: 0xc8a76b,
+            roughness: 0.3,
+            metalness: 0.8,
+            emissive: 0x3a2a0a,
+            emissiveIntensity: 0.3
+        });
+        const ring1 = new THREE.Mesh(geo, mat);
+        group.add(ring1);
+        const ring2 = new THREE.Mesh(geo, mat);
+        ring2.rotation.x = Math.PI / 2;
+        group.add(ring2);
+        return group;
+    }
+
+    // ============================
+    // Primitif placeholder modeller
+    // ============================
     function makeMaterial(color, options) {
         options = options || {};
         return new THREE.MeshStandardMaterial({
@@ -262,17 +320,24 @@ window.ArsivViewer = (function () {
         });
     }
 
+    function buildPlaceholder(group, productType, color) {
+        if (productType === 'hat') buildHat(group, color);
+        else if (productType === 'sunglasses') buildSunglasses(group, color);
+        else if (productType === 'armband') buildArmband(group, color);
+        else if (productType === 'boots') buildBoots(group, color);
+        else if (productType === 'gloves') buildGloves(group, color);
+        else if (productType === 'watch') buildWatch(group, color);
+        else buildJacket(group, color);
+    }
+
     function buildJacket(group, color) {
         const mat = makeMaterial(color, { roughness: 0.55, metalness: 0.05 });
         const accentMat = makeMaterial(0x1a1a1a, { roughness: 0.4, metalness: 0.6 });
 
-        // Gövde (üstte daha geniş)
-        const bodyGeo = new THREE.CylinderGeometry(0.75, 0.95, 1.7, 24, 1, false);
-        const body = new THREE.Mesh(bodyGeo, mat);
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.95, 1.7, 24, 1, false), mat);
         body.castShadow = true;
         group.add(body);
 
-        // Omuzlar
         const shoulderGeo = new THREE.SphereGeometry(0.45, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
         const lShoulder = new THREE.Mesh(shoulderGeo, mat);
         lShoulder.position.set(-0.65, 0.7, 0);
@@ -283,7 +348,6 @@ window.ArsivViewer = (function () {
         rShoulder.rotation.z = -Math.PI / 2;
         group.add(rShoulder);
 
-        // Kollar
         const sleeveGeo = new THREE.CylinderGeometry(0.22, 0.28, 1.3, 16);
         const lSleeve = new THREE.Mesh(sleeveGeo, mat);
         lSleeve.position.set(-0.78, -0.05, 0);
@@ -295,7 +359,6 @@ window.ArsivViewer = (function () {
         rSleeve.rotation.z = -Math.PI / 10;
         group.add(rSleeve);
 
-        // Kol manşetleri
         const cuffGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.18, 16);
         const lCuff = new THREE.Mesh(cuffGeo, accentMat);
         lCuff.position.set(-0.92, -0.7, 0);
@@ -306,20 +369,15 @@ window.ArsivViewer = (function () {
         rCuff.rotation.z = -Math.PI / 10;
         group.add(rCuff);
 
-        // Yaka
-        const collarGeo = new THREE.TorusGeometry(0.35, 0.1, 12, 24, Math.PI * 1.3);
-        const collar = new THREE.Mesh(collarGeo, accentMat);
+        const collar = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.1, 12, 24, Math.PI * 1.3), accentMat);
         collar.position.set(0, 0.85, 0.1);
         collar.rotation.x = -Math.PI / 4;
         group.add(collar);
 
-        // Fermuar çizgisi (orta)
-        const zipGeo = new THREE.BoxGeometry(0.04, 1.5, 0.05);
-        const zip = new THREE.Mesh(zipGeo, makeMaterial(0xc8a060, { metalness: 0.8, roughness: 0.3 }));
+        const zip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.5, 0.05), makeMaterial(0xc8a060, { metalness: 0.8, roughness: 0.3 }));
         zip.position.set(0, 0, 0.75);
         group.add(zip);
 
-        // Cepler
         const pocketGeo = new THREE.BoxGeometry(0.35, 0.25, 0.04);
         const lPocket = new THREE.Mesh(pocketGeo, accentMat);
         lPocket.position.set(-0.35, -0.3, 0.78);
@@ -328,9 +386,7 @@ window.ArsivViewer = (function () {
         rPocket.position.x = 0.35;
         group.add(rPocket);
 
-        // Etek
-        const skirtGeo = new THREE.CylinderGeometry(0.95, 1.0, 0.18, 24);
-        const skirt = new THREE.Mesh(skirtGeo, accentMat);
+        const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.0, 0.18, 24), accentMat);
         skirt.position.y = -0.92;
         group.add(skirt);
 
@@ -341,37 +397,26 @@ window.ArsivViewer = (function () {
         const mat = makeMaterial(color, { roughness: 0.6 });
         const accentMat = makeMaterial(0x111111, { metalness: 0.7, roughness: 0.3 });
 
-        // Kron (silindirik, hafif konik)
-        const crownGeo = new THREE.CylinderGeometry(0.5, 0.55, 0.4, 32);
-        const crown = new THREE.Mesh(crownGeo, mat);
+        const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.55, 0.4, 32), mat);
         crown.position.y = 0.2;
         crown.castShadow = true;
         group.add(crown);
 
-        // Üst (düz)
-        const topGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.03, 32);
-        const top = new THREE.Mesh(topGeo, mat);
+        const top = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.03, 32), mat);
         top.position.y = 0.4;
         group.add(top);
 
-        // Siper / Brim
-        const brimGeo = new THREE.CylinderGeometry(0.85, 0.9, 0.05, 32);
-        const brim = new THREE.Mesh(brimGeo, accentMat);
-        brim.position.y = 0;
-        brim.position.z = 0.1;
+        const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.9, 0.05, 32), accentMat);
+        brim.position.set(0, 0, 0.1);
         brim.rotation.x = -0.15;
         brim.castShadow = true;
         group.add(brim);
 
-        // Şerit
-        const bandGeo = new THREE.CylinderGeometry(0.56, 0.56, 0.1, 32);
-        const band = new THREE.Mesh(bandGeo, accentMat);
+        const band = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.56, 0.1, 32), accentMat);
         band.position.y = 0.05;
         group.add(band);
 
-        // Front emblem (basit disk)
-        const emblemGeo = new THREE.CircleGeometry(0.08, 16);
-        const emblem = new THREE.Mesh(emblemGeo, makeMaterial(0xc8a060, { metalness: 0.8, roughness: 0.3 }));
+        const emblem = new THREE.Mesh(new THREE.CircleGeometry(0.08, 16), makeMaterial(0xc8a060, { metalness: 0.8, roughness: 0.3 }));
         emblem.position.set(0, 0.25, 0.51);
         group.add(emblem);
     }
@@ -386,7 +431,6 @@ window.ArsivViewer = (function () {
             opacity: 0.85
         });
 
-        // Sol cam (oval/aviator)
         const lensGeo = new THREE.TorusGeometry(0.32, 0.04, 12, 32);
         const lLens = new THREE.Mesh(lensGeo, frameMat);
         lLens.position.set(-0.38, 0, 0);
@@ -396,7 +440,6 @@ window.ArsivViewer = (function () {
         lLensFill.position.set(-0.38, 0, 0);
         group.add(lLensFill);
 
-        // Sağ cam
         const rLens = lLens.clone();
         rLens.position.x = 0.38;
         group.add(rLens);
@@ -405,19 +448,16 @@ window.ArsivViewer = (function () {
         rLensFill.position.x = 0.38;
         group.add(rLensFill);
 
-        // Köprü (burun üzeri)
         const bridgeGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.18, 12);
         const bridge = new THREE.Mesh(bridgeGeo, frameMat);
         bridge.position.set(0, 0.08, 0);
         bridge.rotation.z = Math.PI / 2;
         group.add(bridge);
 
-        // İkinci köprü çubuğu (aviator klasik)
         const bridge2 = bridge.clone();
         bridge2.position.y = -0.05;
         group.add(bridge2);
 
-        // Sap kolları
         const armGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.8, 12);
         const lArm = new THREE.Mesh(armGeo, frameMat);
         lArm.position.set(-0.85, 0.05, -0.3);
@@ -437,13 +477,10 @@ window.ArsivViewer = (function () {
         const mat = makeMaterial(color, { roughness: 0.7 });
         const accentMat = makeMaterial(0xc8a060, { metalness: 0.8, roughness: 0.25 });
 
-        // Bant (silindir)
-        const bandGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.5, 32, 1, true);
-        const band = new THREE.Mesh(bandGeo, mat);
+        const band = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.5, 32, 1, true), mat);
         band.castShadow = true;
         group.add(band);
 
-        // Üst kenar
         const edgeTopGeo = new THREE.TorusGeometry(0.5, 0.02, 8, 32);
         const edgeTop = new THREE.Mesh(edgeTopGeo, accentMat);
         edgeTop.position.y = 0.25;
@@ -454,9 +491,7 @@ window.ArsivViewer = (function () {
         edgeBottom.position.y = -0.25;
         group.add(edgeBottom);
 
-        // Merkez sembol (yıldız/disk)
-        const emblemGeo = new THREE.CircleGeometry(0.15, 16);
-        const emblem = new THREE.Mesh(emblemGeo, accentMat);
+        const emblem = new THREE.Mesh(new THREE.CircleGeometry(0.15, 16), accentMat);
         emblem.position.set(0, 0, 0.51);
         group.add(emblem);
 
@@ -471,7 +506,6 @@ window.ArsivViewer = (function () {
         const mat = makeMaterial(color, { roughness: 0.65 });
         const soleMat = makeMaterial(0x141414, { roughness: 0.9 });
 
-        // Sol bot
         const lBoot = new THREE.Group();
         const lShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 0.9, 24), mat);
         lShaft.position.y = 0.3;
@@ -489,7 +523,6 @@ window.ArsivViewer = (function () {
         lBoot.position.x = -0.3;
         group.add(lBoot);
 
-        // Sağ bot
         const rBoot = lBoot.clone();
         rBoot.position.x = 0.3;
         group.add(rBoot);
@@ -500,13 +533,11 @@ window.ArsivViewer = (function () {
     function buildGloves(group, color) {
         const mat = makeMaterial(color, { roughness: 0.6 });
 
-        // Sol eldiven (basit)
         const lGlove = new THREE.Group();
         const lPalm = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.6, 0.18), mat);
         lPalm.castShadow = true;
         lGlove.add(lPalm);
 
-        // Manşet
         const lCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.22, 0.3, 16), mat);
         lCuff.position.y = -0.4;
         lGlove.add(lCuff);
@@ -528,34 +559,25 @@ window.ArsivViewer = (function () {
         const faceMat = makeMaterial(0x0a0a0a, { metalness: 0.4, roughness: 0.6 });
         const strapMat = makeMaterial(0x3a2a1a, { roughness: 0.8 });
 
-        // Kasa
-        const caseGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.18, 32);
-        const watchCase = new THREE.Mesh(caseGeo, caseMat);
+        const watchCase = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.18, 32), caseMat);
         watchCase.rotation.x = Math.PI / 2;
         watchCase.castShadow = true;
         group.add(watchCase);
 
-        // Kadran
-        const faceGeo = new THREE.CircleGeometry(0.42, 32);
-        const face = new THREE.Mesh(faceGeo, faceMat);
+        const face = new THREE.Mesh(new THREE.CircleGeometry(0.42, 32), faceMat);
         face.position.z = 0.1;
         group.add(face);
 
-        // Ibreler
-        const hourGeo = new THREE.BoxGeometry(0.04, 0.22, 0.02);
-        const hour = new THREE.Mesh(hourGeo, makeMaterial(0xe8e6e1, { metalness: 0.6 }));
+        const hour = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.22, 0.02), makeMaterial(0xe8e6e1, { metalness: 0.6 }));
         hour.position.set(0, 0.05, 0.13);
         group.add(hour);
 
-        const minGeo = new THREE.BoxGeometry(0.03, 0.32, 0.02);
-        const minute = new THREE.Mesh(minGeo, makeMaterial(0xe8e6e1, { metalness: 0.6 }));
+        const minute = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.32, 0.02), makeMaterial(0xe8e6e1, { metalness: 0.6 }));
         minute.position.set(0.1, 0, 0.13);
         minute.rotation.z = -0.6;
         group.add(minute);
 
-        // Kayışlar
-        const strapTopGeo = new THREE.BoxGeometry(0.55, 0.7, 0.08);
-        const strapTop = new THREE.Mesh(strapTopGeo, strapMat);
+        const strapTop = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.7, 0.08), strapMat);
         strapTop.position.y = 0.6;
         group.add(strapTop);
 
@@ -566,11 +588,5 @@ window.ArsivViewer = (function () {
         group.scale.set(1.4, 1.4, 1.4);
     }
 
-    // ============================
-    // Public exports
-    // ============================
-    return {
-        create: create3DViewer
-    };
-
+    return { create: create3DViewer };
 })();
