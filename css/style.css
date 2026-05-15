@@ -241,12 +241,68 @@ body::after {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--bw-gold);
+    color: #ffd700;
+    animation: starPulse 2.4s ease-in-out infinite;
 }
 
 .brand-mark svg {
     width: 100%;
     height: 100%;
+}
+
+/* Rainbow wordmark */
+.brand-text,
+.footer-brand-text {
+    background-image: linear-gradient(
+        90deg,
+        #ff3b3b 0%,
+        #ff8c00 16%,
+        #ffd700 32%,
+        #2ecc40 48%,
+        #00b3ff 64%,
+        #b14eff 80%,
+        #ff3b3b 100%
+    );
+    background-size: 200% auto;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    animation: rainbowShift 6s linear infinite;
+    font-weight: inherit;
+    letter-spacing: inherit;
+}
+
+.footer-brand-text .star {
+    -webkit-text-fill-color: #ffd700;
+    color: #ffd700;
+    background: none;
+    margin: 0 0.5rem;
+    animation: starTextPulse 2.4s ease-in-out infinite;
+    display: inline-block;
+}
+
+@keyframes rainbowShift {
+    0%   { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+}
+
+@keyframes starPulse {
+    0%, 100% {
+        filter: drop-shadow(0 0 4px #ffd700) drop-shadow(0 0 10px rgba(255, 215, 0, 0.45));
+    }
+    50% {
+        filter: drop-shadow(0 0 9px #ffeb3b) drop-shadow(0 0 22px rgba(255, 215, 0, 0.75));
+    }
+}
+
+@keyframes starTextPulse {
+    0%, 100% {
+        text-shadow: 0 0 6px #ffd700, 0 0 14px rgba(255, 215, 0, 0.5);
+    }
+    50% {
+        text-shadow: 0 0 12px #ffeb3b, 0 0 24px rgba(255, 215, 0, 0.7);
+    }
 }
 
 .nav-menu {
@@ -1584,8 +1640,9 @@ body::after {
 }
 
 .footer-brand .star {
-    color: var(--bw-gold);
+    color: #ffd700;
     margin: 0 0.5rem;
+    animation: starTextPulse 2.4s ease-in-out infinite;
 }
 
 .footer-about {
